@@ -55,6 +55,6 @@ This is an educational and portfolio project. It is not intended for real clinic
 
 ## Author
 
-Felipe Borges
-Medical Physics Student @ UFCSPA
-AI, Data Science, and Healthcare Technology
+- Felipe Borges
+- Medical Physics Student @ UFCSPA
+- AI, Data Science, and Healthcare Technology
