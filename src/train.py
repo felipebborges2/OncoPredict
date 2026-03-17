@@ -4,7 +4,7 @@ import joblib
 import pandas as pd
 
 from sklearn.datasets import load_breast_cancer
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV, learning_curve
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
@@ -116,6 +116,96 @@ def plot_threshold_analysis(best_model, best_name, X_test, y_test, reports_dir, 
     print(f"Limiar ótimo (Youden): {best_threshold:.4f} "
           f"| Sensibilidade: {best_sensitivity:.4f} "
           f"| Especificidade: {best_specificity:.4f}")
+
+
+def plot_learning_curve(best_model, best_name, X, y, figures_dir):
+    """
+    Gera a curva de aprendizado do melhor modelo.
+
+    Treina o modelo repetidamente com subconjuntos crescentes dos dados
+    (de 10% a 100%) e plota a acurácia de treino e de validação cruzada
+    para cada tamanho. Isso responde: "mais dados melhorariam o modelo?"
+
+    - Se a curva de validação ainda está subindo no final → mais dados ajudariam
+    - Se ambas as curvas convergem em valor alto → o modelo está saturado (bom sinal)
+    - Se há grande gap entre treino e validação → overfitting
+    """
+    import numpy as np
+
+    train_sizes, train_scores, val_scores = learning_curve(
+        best_model, X, y,
+        cv=5,
+        scoring="accuracy",
+        train_sizes=np.linspace(0.1, 1.0, 10),
+        n_jobs=-1
+    )
+
+    train_mean = train_scores.mean(axis=1)
+    train_std  = train_scores.std(axis=1)
+    val_mean   = val_scores.mean(axis=1)
+    val_std    = val_scores.std(axis=1)
+
+    plt.figure(figsize=(9, 5))
+    plt.plot(train_sizes, train_mean, "o-", color="#3498db", label="Acurácia de treino")
+    plt.fill_between(train_sizes, train_mean - train_std, train_mean + train_std,
+                     alpha=0.15, color="#3498db")
+    plt.plot(train_sizes, val_mean, "o-", color="#e74c3c", label="Acurácia de validação (CV)")
+    plt.fill_between(train_sizes, val_mean - val_std, val_mean + val_std,
+                     alpha=0.15, color="#e74c3c")
+
+    plt.xlabel("Tamanho do conjunto de treinamento (amostras)")
+    plt.ylabel("Acurácia")
+    plt.title(f"Curva de Aprendizado — {best_name}")
+    plt.legend(loc="lower right")
+    plt.ylim(0.85, 1.01)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(figures_dir / "learning_curve.png", dpi=150)
+    plt.close()
+    print("\nCurva de aprendizado salva em figures/learning_curve.png")
+
+
+def plot_shap_values(trained_models, X_train, X_test, feature_names, figures_dir):
+    """
+    Gera explicações SHAP para o Random Forest.
+
+    SHAP (SHapley Additive exPlanations) calcula a contribuição de cada
+    feature para cada predição individual — não apenas a importância global.
+
+    Usamos o Random Forest com TreeExplainer (exato e rápido) em vez do
+    SVM, pois modelos lineares e baseados em kernel requerem KernelExplainer,
+    que é uma aproximação lenta. Em projetos reais, é prática comum usar
+    um modelo de árvore especificamente para análise de interpretabilidade.
+    """
+    import shap
+
+    rf_pipeline = trained_models["random_forest"]
+    rf_model = rf_pipeline.named_steps["model"]
+
+    explainer = shap.TreeExplainer(rf_model)
+
+    # shap_values retorna um objeto Explanation com shape (n_samples, n_features, n_classes)
+    # Usamos classe 0 (maligno) pois é o de maior interesse clínico
+    shap_explanation = explainer(X_test)
+    shap_malignant = shap_explanation[:, :, 0]
+
+    # Beeswarm plot — visão global: impacto de cada feature em todas as amostras
+    plt.figure()
+    shap.plots.beeswarm(shap_malignant, show=False, max_display=20)
+    plt.title("SHAP — Impacto das features na classificação de tumor maligno", pad=15)
+    plt.tight_layout()
+    plt.savefig(figures_dir / "shap_beeswarm.png", dpi=150, bbox_inches="tight")
+    plt.close()
+
+    # Waterfall plot — visão individual: explicação de uma única amostra
+    plt.figure()
+    shap.plots.waterfall(shap_malignant[0], show=False, max_display=15)
+    plt.title("SHAP — Explicação individual (amostra #1)", pad=15)
+    plt.tight_layout()
+    plt.savefig(figures_dir / "shap_waterfall.png", dpi=150, bbox_inches="tight")
+    plt.close()
+
+    print("\nGráficos SHAP salvos em figures/")
 
 
 def plot_feature_importance(trained_models, feature_names, figures_dir):
@@ -318,6 +408,8 @@ def main():
             best_name = name
 
     plot_roc_curves(trained_models, X_test, y_test, figures_dir)
+    plot_learning_curve(best_model, best_name, X, y, figures_dir)
+    plot_shap_values(trained_models, X_train, X_test, X.columns.tolist(), figures_dir)
     plot_feature_importance(trained_models, X.columns.tolist(), figures_dir)
     plot_threshold_analysis(best_model, best_name, X_test, y_test, reports_dir, figures_dir)
 
