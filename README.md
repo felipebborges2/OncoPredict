@@ -19,6 +19,8 @@ OncoPredict-ML demonstrates a complete supervised ML pipeline applied to a clini
 - Robust evaluation with accuracy, AUC, cross-validation, and confusion matrix
 - Feature importance analysis (Random Forest + Logistic Regression coefficients)
 - Decision threshold optimization using the Youden index
+- Model explainability with SHAP values (beeswarm and waterfall plots)
+- Learning curve analysis to assess model saturation
 - Model serialization and inference on new data via CSV input
 
 **Dataset:** [Breast Cancer Wisconsin](https://scikit-learn.org/stable/datasets/toy_dataset.html#breast-cancer-dataset) — 569 samples, 30 morphological features extracted from microscopic tumor images, binary classification (malignant / benign).
@@ -133,6 +135,7 @@ jupyter notebook
 - scikit-learn
 - pandas / numpy
 - matplotlib / seaborn
+- shap
 - joblib
 - Jupyter Notebook
 
