@@ -1,76 +1,86 @@
 # OncoPredict-ML
 
-Pipeline completo de Machine Learning para classificação de tumores de mama, aplicado ao dataset Breast Cancer Wisconsin.
+An end-to-end Machine Learning pipeline for breast tumor classification using clinical tabular data.
 
-> **Projeto educacional e de portfólio.** Não tem finalidade clínica e não substitui diagnóstico médico profissional.
+> **Educational and portfolio project.** Not intended for clinical use and does not replace professional medical diagnosis.
 
-Desenvolvido por **Felipe Borges** — Estudante de Física Médica @ UFCSPA, na intersecção entre IA, Ciência de Dados e Tecnologia em Saúde.
-
----
-
-## Sobre o projeto
-
-O objetivo é demonstrar um pipeline de ML supervisionado end-to-end aplicado a um problema de classificação clínica, cobrindo todas as etapas fundamentais:
-
-- Análise exploratória de dados
-- Pré-processamento e normalização de features
-- Treinamento e comparação de múltiplos algoritmos
-- Avaliação com métricas robustas (acurácia, AUC, validação cruzada, matriz de confusão)
-- Análise de feature importance
-- Serialização do melhor modelo e inferência em novos dados
-
-**Dataset:** [Breast Cancer Wisconsin](https://scikit-learn.org/stable/datasets/toy_dataset.html#breast-cancer-dataset) — 569 amostras, 30 features morfológicas de tumores, classificação binária (maligno/benigno).
+Developed by **Felipe Borges** — Medical Physics Student @ UFCSPA, at the intersection of AI, Data Science, and Healthcare Technology.
 
 ---
 
-## Resultados
+## Overview
 
-| Modelo | Acurácia | AUC | CV Médio | CV Std |
-|---|---|---|---|---|
-| **Logistic Regression** | **98.2%** | **0.9954** | **98.1%** | **0.0065** |
-| SVM | 98.2% | 0.9950 | 97.4% | 0.0147 |
-| Random Forest | 95.6% | 0.9931 | 95.8% | 0.0238 |
+OncoPredict-ML demonstrates a complete supervised ML pipeline applied to a clinical classification problem, covering every fundamental stage of a real-world ML system:
 
-O melhor modelo foi a **Regressão Logística** — mesma acurácia que o SVM, mas com menor variação entre rodadas de validação cruzada, indicando maior estabilidade e melhor generalização.
+- Exploratory data analysis with class separability and correlation studies
+- Feature preprocessing and normalization
+- Training and comparison of multiple classification algorithms
+- Hyperparameter tuning via automated grid search
+- Robust evaluation with accuracy, AUC, cross-validation, and confusion matrix
+- Feature importance analysis (Random Forest + Logistic Regression coefficients)
+- Decision threshold optimization using the Youden index
+- Model serialization and inference on new data via CSV input
 
-### Curvas ROC
+**Dataset:** [Breast Cancer Wisconsin](https://scikit-learn.org/stable/datasets/toy_dataset.html#breast-cancer-dataset) — 569 samples, 30 morphological features extracted from microscopic tumor images, binary classification (malignant / benign).
+
+---
+
+## Results
+
+After automated hyperparameter tuning with `GridSearchCV` (5-fold cross-validation):
+
+| Model | Accuracy | AUC | CV Mean | CV Std | Best Params |
+|---|---|---|---|---|---|
+| **SVM** | **98.2%** | **0.9937** | **97.8%** | 0.0139 | C=0.1, kernel=linear |
+| Logistic Regression | 97.4% | 0.9957 | 98.0% | 0.0162 | C=0.1, solver=lbfgs |
+| Random Forest | 95.6% | 0.9931 | 96.0% | 0.0192 | n_estimators=200 |
+
+The best model was **SVM with a linear kernel** — grid search revealed that a linear decision boundary outperforms RBF, which is consistent with the high linear separability observed in the exploratory analysis.
+
+The decision threshold analysis (Youden index) confirmed the model is well-calibrated: the optimal threshold (0.51) is virtually identical to the standard 0.50, meaning the predicted probabilities accurately reflect the true class distribution.
+
+### ROC Curves
 ![ROC Curves](figures/roc_curves.png)
+
+### Class Separability
+![Class Separability](figures/class_separability.png)
 
 ### Feature Importance
 ![Feature Importance RF](figures/feature_importance_rf.png)
 ![Feature Importance LR](figures/feature_importance_lr.png)
 
-### Separabilidade das classes
-![Class Separability](figures/class_separability.png)
+### Threshold Analysis
+![Threshold Analysis](figures/threshold_analysis.png)
 
 ---
 
-## Estrutura do projeto
+## Project Structure
 
 ```
 OncoPredict-ML/
 ├── notebooks/
-│   ├── 01_exploratory_analysis.ipynb   # Análise exploratória dos dados
-│   └── 02_model_training.ipynb         # Análise visual dos resultados
+│   ├── 01_exploratory_analysis.ipynb   # Data exploration and visualization
+│   └── 02_model_training.ipynb         # Results analysis and interpretation
 ├── src/
-│   ├── train.py                        # Pipeline de treinamento e avaliação
-│   └── predict.py                      # Inferência em nova amostra
+│   ├── train.py                        # Full training and evaluation pipeline
+│   └── predict.py                      # Inference on new samples (CLI + CSV)
 ├── models/
-│   └── best_model.pkl                  # Melhor modelo serializado
+│   └── best_model.pkl                  # Serialized best model
 ├── reports/
-│   ├── model_comparison.csv            # Comparação de métricas
-│   └── *_classification_report.txt    # Relatórios por modelo
-├── figures/                            # Gráficos gerados
-├── test_env.py                         # Verificação do ambiente
+│   ├── model_comparison.csv            # Metrics comparison across models
+│   ├── threshold_analysis.txt          # Optimal threshold report
+│   └── *_classification_report.txt     # Per-model classification reports
+├── figures/                            # Generated plots and charts
+├── test_env.py                         # Environment verification script
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## Como executar
+## Getting Started
 
-### 1. Clone o repositório e configure o ambiente
+### 1. Clone the repository and set up the environment
 
 ```bash
 git clone https://github.com/felipebborges2/OncoPredict.git
@@ -81,38 +91,43 @@ source .venv/bin/activate        # Linux/Mac
 pip install -r requirements.txt
 ```
 
-### 2. Treine os modelos
+### 2. Train the models
 
 ```bash
 python src/train.py
 ```
 
-Isso irá:
-- Treinar os 3 modelos com validação cruzada
-- Gerar relatórios em `reports/`
-- Gerar gráficos (ROC, feature importance) em `figures/`
-- Salvar o melhor modelo em `models/best_model.pkl`
+This will:
+- Run GridSearchCV to find the best hyperparameters for each model
+- Evaluate all models on a held-out test set
+- Generate ROC curves, feature importance plots and threshold analysis in `figures/`
+- Save classification reports in `reports/`
+- Serialize the best model to `models/best_model.pkl`
 
-### 3. Execute uma inferência
+### 3. Run inference
 
 ```bash
+# Using the built-in synthetic sample
 python src/predict.py
+
+# Using your own CSV file
+python src/predict.py --input path/to/your/data.csv
 ```
 
-Roda o modelo treinado em uma amostra sintética com valores realistas, simulando a chegada de um novo caso.
+The CSV file must contain one row per sample and one column per feature, using the same feature names as the training dataset.
 
-### 4. Explore os notebooks
+### 4. Explore the notebooks
 
 ```bash
 jupyter notebook
 ```
 
-- `01_exploratory_analysis.ipynb` — análise do dataset antes do treinamento
-- `02_model_training.ipynb` — visualização e interpretação dos resultados
+- `01_exploratory_analysis.ipynb` — dataset inspection, class separability, correlation heatmap, feature distributions
+- `02_model_training.ipynb` — visual analysis of model results, ROC curves, feature importance
 
 ---
 
-## Stack
+## Tech Stack
 
 - Python 3.9+
 - scikit-learn
@@ -123,8 +138,8 @@ jupyter notebook
 
 ---
 
-## Autor
+## Author
 
 **Felipe Borges**
-Estudante de Física Médica @ UFCSPA
-Interesses: IA aplicada à saúde, radiômica, aprendizado de máquina em oncologia
+Medical Physics Student @ UFCSPA
+Interests: AI in healthcare, radiomics, machine learning in oncology
