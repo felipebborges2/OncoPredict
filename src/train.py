@@ -14,6 +14,45 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 import matplotlib.pyplot as plt
 
 
+def plot_feature_importance(trained_models, feature_names, figures_dir):
+    figures_dir.mkdir(exist_ok=True)
+
+    # Random Forest — importância baseada em quanto cada feature reduz a impureza nas árvores
+    rf_pipeline = trained_models["random_forest"]
+    rf_importances = pd.Series(
+        rf_pipeline.named_steps["model"].feature_importances_,
+        index=feature_names
+    ).sort_values(ascending=True).tail(15)
+
+    plt.figure(figsize=(8, 7))
+    rf_importances.plot(kind="barh", color="#3498db")
+    plt.title("Random Forest — Top 15 Features mais importantes")
+    plt.xlabel("Importância (redução média de impureza)")
+    plt.tight_layout()
+    plt.savefig(figures_dir / "feature_importance_rf.png", dpi=150)
+    plt.close()
+
+    # Regressão Logística — coeficientes indicam o peso de cada feature na decisão
+    lr_pipeline = trained_models["logistic_regression"]
+    lr_coefs = pd.Series(
+        lr_pipeline.named_steps["model"].coef_[0],
+        index=feature_names
+    ).sort_values(ascending=True)
+    top_lr = pd.concat([lr_coefs.head(10), lr_coefs.tail(10)]).sort_values()
+
+    colors = ["#e74c3c" if c < 0 else "#2ecc71" for c in top_lr.values]
+    plt.figure(figsize=(8, 7))
+    top_lr.plot(kind="barh", color=colors)
+    plt.axvline(0, color="black", linewidth=0.8, linestyle="--")
+    plt.title("Regressão Logística — Top features por coeficiente\n(verde = empurra para benigno | vermelho = empurra para maligno)")
+    plt.xlabel("Coeficiente (após normalização)")
+    plt.tight_layout()
+    plt.savefig(figures_dir / "feature_importance_lr.png", dpi=150)
+    plt.close()
+
+    print("\nGráficos de feature importance salvos em figures/")
+
+
 def plot_roc_curves(trained_models, X_test, y_test, figures_dir):
     figures_dir.mkdir(exist_ok=True)
     plt.figure(figsize=(8, 6))
@@ -131,6 +170,7 @@ def main():
             best_name = name
 
     plot_roc_curves(trained_models, X_test, y_test, figures_dir)
+    plot_feature_importance(trained_models, X.columns.tolist(), figures_dir)
 
     results_df = pd.DataFrame(results).sort_values(by="accuracy", ascending=False)
     results_df.to_csv(reports_dir / "model_comparison.csv", index=False)
