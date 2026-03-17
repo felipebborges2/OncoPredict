@@ -1,16 +1,19 @@
 Model: logistic_regression
-Accuracy: 0.9825
+Accuracy: 0.9737
+
+Best Hyperparameters:
+{'model__C': 0.1, 'model__solver': 'lbfgs'}
 
 Confusion Matrix:
-[[41  1]
+[[40  2]
  [ 1 71]]
 
 Classification Report:
               precision    recall  f1-score   support
 
-           0       0.98      0.98      0.98        42
-           1       0.99      0.99      0.99        72
+           0       0.98      0.95      0.96        42
+           1       0.97      0.99      0.98        72
 
-    accuracy                           0.98       114
-   macro avg       0.98      0.98      0.98       114
-weighted avg       0.98      0.98      0.98       114
+    accuracy                           0.97       114
+   macro avg       0.97      0.97      0.97       114
+weighted avg       0.97      0.97      0.97       114

@@ -1,0 +1,14 @@
+Análise de Limiar de Decisão — svm
+==================================================
+
+Limiar padrão (0.50):
+  Falsos Negativos (cânceres não detectados): 1
+  Falsos Positivos (alarmes falsos):          1
+  Sensibilidade: 0.9861
+  Especificidade: 0.9762
+
+Limiar ótimo pelo índice de Youden (0.5087):
+  Falsos Negativos (cânceres não detectados): 1
+  Falsos Positivos (alarmes falsos):          1
+  Sensibilidade: 0.9861
+  Especificidade: 0.9762
