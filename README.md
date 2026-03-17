@@ -4,7 +4,7 @@ An end-to-end Machine Learning pipeline for breast tumor classification using cl
 
 > **Educational and portfolio project.** Not intended for clinical use and does not replace professional medical diagnosis.
 
-Developed by **Felipe Borges** — Medical Physics Student @ UFCSPA, at the intersection of AI, Data Science, and Healthcare Technology.
+Developed by **Felipe Borges** — Medical Physics Student at UFCSPA.
 
 ---
 
@@ -141,5 +141,4 @@ jupyter notebook
 ## Author
 
 **Felipe Borges**
-Medical Physics Student @ UFCSPA
-Interests: AI in healthcare, radiomics, machine learning in oncology
+Medical Physics Student at UFCSPA
