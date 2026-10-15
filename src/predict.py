@@ -1,123 +1,116 @@
 """
-predict.py — Inferência com o modelo treinado do OncoPredict.
+predict.py — Inference with the trained OncoPredict model.
 
-Uso:
-    python src/predict.py                        # usa amostra sintética
-    python src/predict.py --input dados.csv      # usa arquivo CSV externo
+Usage (from any directory):
+    python src/predict.py                                  # built-in synthetic sample
+    python src/predict.py --input data.csv                 # external CSV
+    python src/predict.py --input data.csv --output out.csv
 
-O CSV deve conter uma linha por amostra e uma coluna por feature,
-com os mesmos nomes de colunas usados no treinamento.
+The CSV must have one row per sample and one column per feature, using the
+feature names of the Breast Cancer Wisconsin dataset (e.g. "mean radius").
 """
 
 import argparse
+import sys
 from pathlib import Path
 
 import joblib
 import pandas as pd
 
-from sklearn.datasets import load_breast_cancer
+from oncopredict.config import MODEL_PATH
+from oncopredict.models import MODEL_LABELS
+
+# Hypothetical malignant tumor, close to the malignant-class means of the
+# dataset. It does not correspond to any real patient.
+SYNTHETIC_SAMPLE = [
+    17.5, 21.0, 115.0, 950.0, 0.110,
+    0.160, 0.180, 0.095, 0.210, 0.065,
+    0.80, 1.20, 5.50, 75.0, 0.007,
+    0.025, 0.030, 0.012, 0.018, 0.004,
+    22.0, 28.0, 145.0, 1500.0, 0.145,
+    0.380, 0.450, 0.175, 0.350, 0.110,
+]
 
 
-EXPECTED_FEATURES = load_breast_cancer().feature_names.tolist()
+def load_artifact(path=MODEL_PATH):
+    if not Path(path).exists():
+        sys.exit(f"Model not found at {path}. Run `python src/train.py` first.")
+    return joblib.load(path)
 
 
-def load_input(csv_path: str) -> pd.DataFrame:
+def load_input(csv_path, feature_names):
+    """Read a CSV and return its feature columns in training order."""
     df = pd.read_csv(csv_path)
-
-    missing = [f for f in EXPECTED_FEATURES if f not in df.columns]
+    missing = [f for f in feature_names if f not in df.columns]
     if missing:
-        raise ValueError(
-            f"O arquivo CSV está faltando as seguintes colunas:\n{missing}"
-        )
-
-    extra = [c for c in df.columns if c not in EXPECTED_FEATURES]
+        raise ValueError(f"CSV is missing required columns: {missing}")
+    extra = [c for c in df.columns if c not in feature_names]
     if extra:
-        print(f"  Aviso: colunas ignoradas (não fazem parte do modelo): {extra}")
+        print(f"Warning: ignoring columns that are not model features: {extra}")
+    return df[feature_names]
 
-    return df[EXPECTED_FEATURES]
 
+def out_of_range(X, feature_ranges):
+    """Features outside the range seen in training, per row.
 
-def build_synthetic_sample() -> pd.DataFrame:
+    The model was never shown such values, so its output there is an extrapolation.
     """
-    Cria uma amostra sintética de tumor com valores realistas.
-
-    Os valores simulam um tumor maligno hipotético — baseados nas médias
-    do dataset Breast Cancer Wisconsin para a classe maligna.
-    Não representa nenhum caso real.
-    """
-    synthetic_values = [
-        17.5, 21.0, 115.0, 950.0, 0.110,
-        0.160, 0.180, 0.095, 0.210, 0.065,
-        0.80,  1.20,   5.50, 75.0, 0.007,
-        0.025, 0.030, 0.012, 0.018, 0.004,
-        22.0, 28.0, 145.0, 1500.0, 0.145,
-        0.380, 0.450, 0.175, 0.350, 0.110,
-    ]
-    return pd.DataFrame([synthetic_values], columns=EXPECTED_FEATURES)
+    low, high = feature_ranges["min"], feature_ranges["max"]
+    outside = (X < low) | (X > high)
+    return {i: list(X.columns[row]) for i, row in zip(X.index, outside.to_numpy()) if row.any()}
 
 
-def print_result(sample: pd.DataFrame, model, source: str):
-    class_names = load_breast_cancer().target_names
+def predict(artifact, X):
+    """P(malignant) and predicted class at the deployed threshold."""
+    proba = artifact["pipeline"].predict_proba(X)[:, 1]
+    labels = [artifact["class_names"][int(p >= artifact["threshold"])] for p in proba]
+    return pd.DataFrame({"p_malignant": proba, "prediction": labels}, index=X.index)
 
-    print("\n" + "=" * 52)
-    print("  OncoPredict — Resultado da Inferência")
-    print("=" * 52)
-    print(f"  Fonte dos dados : {source}")
-    print(f"  Amostras        : {len(sample)}")
 
-    for i, row in sample.iterrows():
-        prediction = model.predict(row.to_frame().T)[0]
-        probabilities = model.predict_proba(row.to_frame().T)[0]
-        predicted_class = class_names[prediction]
-
-        print(f"\n  --- Amostra #{i + 1} ---")
-        print(f"  Classe prevista : {predicted_class.upper()}")
-        print("  Probabilidades  :")
-        for class_name, prob in zip(class_names, probabilities):
-            bar = "█" * int(prob * 28)
-            print(f"    {class_name:<12} {prob:.1%}  {bar}")
-
-        if predicted_class == "malignant":
-            print("  ⚠  Predição indica tumor MALIGNO.")
-        else:
-            print("  ✓  Predição indica tumor BENIGNO.")
-
-    print("\n" + "=" * 52)
-    print("  AVISO: Este sistema é educacional.")
-    print("  Não substitui diagnóstico médico profissional.")
-    print("=" * 52)
+def print_results(results, artifact, source, warnings):
+    print("=" * 60)
+    print("  OncoPredict — inference")
+    print("=" * 60)
+    print(f"  Source    : {source}")
+    print(f"  Model     : {MODEL_LABELS[artifact['model_name']]}")
+    print(f"  Threshold : {artifact['threshold']:.3f} ({artifact['threshold_rule']})")
+    for i, row in results.iterrows():
+        bar = "█" * int(row.p_malignant * 30)
+        print(f"\n  Sample {i}: {row.prediction.upper():<9} P(malignant) = {row.p_malignant:6.1%}  {bar}")
+        if i in warnings:
+            print(f"    Warning: outside training range -> {warnings[i]}")
+    print("\n" + "=" * 60)
+    print("  Educational project. Not a medical device and not a diagnosis.")
+    print("=" * 60)
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="OncoPredict — inferência em novos dados clínicos."
-    )
-    parser.add_argument(
-        "--input", "-i",
-        type=str,
-        default=None,
-        help="Caminho para um arquivo CSV com as features do tumor. "
-             "Se não informado, usa uma amostra sintética.",
-    )
+    parser = argparse.ArgumentParser(description="OncoPredict — inference on new samples.")
+    parser.add_argument("--input", "-i", help="CSV with tumor features. Defaults to a synthetic sample.")
+    parser.add_argument("--output", "-o", help="Optional path to save predictions as CSV.")
     args = parser.parse_args()
 
-    model_path = Path("models/best_model.pkl")
-    if not model_path.exists():
-        raise FileNotFoundError("Modelo não encontrado. Rode src/train.py primeiro.")
-
-    model = joblib.load(model_path)
+    artifact = load_artifact()
+    features = artifact["feature_names"]
 
     if args.input:
-        input_path = Path(args.input)
-        if not input_path.exists():
-            raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
-        sample = load_input(args.input)
-        source = str(input_path)
+        if not Path(args.input).exists():
+            sys.exit(f"File not found: {args.input}")
+        try:
+            X = load_input(args.input, features)
+        except ValueError as error:
+            sys.exit(str(error))
+        source = args.input
     else:
-        sample = build_synthetic_sample()
-        source = "amostra sintética (padrão)"
+        X = pd.DataFrame([SYNTHETIC_SAMPLE], columns=features)
+        source = "synthetic sample (default)"
 
-    print_result(sample, model, source)
+    results = predict(artifact, X)
+    print_results(results, artifact, source, out_of_range(X, artifact["feature_ranges"]))
+
+    if args.output:
+        results.to_csv(args.output, index_label="sample")
+        print(f"Predictions saved to {args.output}")
 
 
 if __name__ == "__main__":
