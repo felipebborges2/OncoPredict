@@ -1,0 +1,12 @@
+[project]
+name = "oncopredict"
+version = "1.0.0"
+description = "Breast tumor classification with a clinically oriented evaluation protocol."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Felipe Borges" }]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
